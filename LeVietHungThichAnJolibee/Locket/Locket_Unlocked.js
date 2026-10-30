@@ -1,14 +1,29 @@
-var ua = $request.headers["User-Agent"] || $request.headers["user-agent"] || "";
+// Bắt User-Agent linh hoạt hơn (chuyển về chữ thường để so sánh)
+var ua = ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase();
 
+var bodyText = $response.body;
+
+// 1. CHẶN ĐỨNG KỊCH BẢN NẾU GÓI TIN RỖNG (Theo góp ý của bạn bạn)
+if (!bodyText) {
+    $done({});
+    return;
+}
+
+var obj;
+
+// 2. TÁCH RIÊNG KHỐI PARSE JSON ĐỂ BẪY LỖI SỚM
 try {
-    var bodyText = $response.body;
-    if (!bodyText) {
-        $done({});
-    }
-    
-    var obj = JSON.parse(bodyText);
+    obj = JSON.parse(bodyText);
+} catch (e) {
+    console.log("Locket JSON Parse Error: " + e.message);
+    $done({});
+    return;
+}
 
-    if (ua.includes("Locket")) {
+// 3. THỰC THI LOGIC CHÍNH KHI ĐẢM BẢO DỮ LIỆU ĐÃ SẠCH
+try {
+    // Chỉ can thiệp nếu request xuất phát từ app Locket
+    if (ua.includes("locket")) {
         obj.Attention = "Chúc mừng bạn! Vui lòng không sử dụng chúng dưới mục đích thương mại!";
         obj.entries = obj.entries || {};
 
@@ -152,15 +167,15 @@ try {
         });
 
         // ============================================================
-        // 4. BẠN BÈ, GIỚI HẠN & ĐỀ XUẤT KẾT BẠN
+        // 4. BẠN BÈ, GIỚI HẠN & ĐỀ XUẤT KẾT BẠN (Đã hạ mức giới hạn an toàn)
         // ============================================================
         Object.assign(obj.entries, {
-            max_friends_count: "999999999",
+            max_friends_count: "99999",
             friend_limit_mode: "0",
-            soft_friend_limit_threshold_count: "999999999",
+            soft_friend_limit_threshold_count: "99999",
             show_friend_limit_on_cam: "false",
-            signup_max_friends_count: "999999999",
-            celebrity_inbox_limit: "999999999",
+            signup_max_friends_count: "99999",
+            celebrity_inbox_limit: "99999",
             celebrity_inbox_enabled: "true",
             celebrity_vip_qr_redemption_enabled: "true",
             friend_limit_geo_override: JSON.stringify({ experiments: {}, area_code_overrides: {} }),
@@ -185,14 +200,16 @@ try {
         });
 
         // ============================================================
-        // 5. MOMENTS, STREAK, CHAT & TƯƠNG TÁC
+        // 5. MOMENTS, STREAK, CHAT & TƯƠNG TÁC (Đã thêm check an toàn)
         // ============================================================
-        try {
-            var streak = JSON.parse(obj.entries.streak_config || "{}");
-            streak.minimum_recovery_count = 0;
-            streak.minimum_display_count = 0;
-            obj.entries.streak_config = JSON.stringify(streak);
-        } catch (e) {}
+        if (obj.entries && typeof obj.entries.streak_config === 'string') {
+            try {
+                var streak = JSON.parse(obj.entries.streak_config);
+                streak.minimum_recovery_count = 0;
+                streak.minimum_display_count = 0;
+                obj.entries.streak_config = JSON.stringify(streak);
+            } catch (e) {}
+        }
 
         Object.assign(obj.entries, {
             moment_views_enabled: "true",
@@ -275,13 +292,15 @@ try {
         });
 
         // ============================================================
-        // 7. HỆ THỐNG, CACHE & STORAGE CDN
+        // 7. HỆ THỐNG, CACHE & STORAGE CDN (Đã tắt cấu hình CDN rủi ro)
         // ============================================================
         Object.assign(obj.entries, {
-            cdn_domain_replacements: JSON.stringify({ "firebasestorage.googleapis.com": "cdn.locketcamera.com" }),
+            // Đã comment 3 dòng dưới để tránh lỗi không load được ảnh/video
+            // cdn_domain_replacements: JSON.stringify({ "firebasestorage.googleapis.com": "cdn.locketcamera.com" }),
+            // storage_bucket: "gs://locket-img",
+            // storage_bucket_video: "gs://locket-video",
+            
             cdn_domain_replacements_video: "true",
-            storage_bucket: "gs://locket-img",
-            storage_bucket_video: "gs://locket-video",
             image_cache_max_age_sec: "157680000",
             image_cache_max_size: "400000000",
             history_cache_age_days: "1000",
@@ -316,7 +335,7 @@ try {
         });
 
         // ============================================================
-        // 8. OVERLAY & CUSTOM CAPTIONS
+        // 8. OVERLAY & CUSTOM CAPTIONS (Đã fix lỗi dấu phẩy & ID nhạy cảm)
         // ============================================================
         Object.assign(obj.entries, {
             overlay_navigator_enabled: "true",
@@ -328,7 +347,8 @@ try {
             overlay_dynamic_captions: JSON.stringify([
                 "standard", "poll", "color_palette", "review", "music", "location",
                 "weather", "time", "streak", "star_sign", "locket_count",
-                "custom", "halloween_2026"
+                "custom", "caption:haoluu10", "caption:uong_bia", "caption:hoi_chieu_troi_mua", "caption:bien_oiiii", "caption:chan_bo_may_di", "caption:toi_song_the_day", "caption:tuong_love_hoa_ra_lop",
+                "caption:ngayle_1", "caption:ngayle_2", "caption:ngayle_3", "caption:ngayle_4", "caption:ngayle_5", "caption:ngayle_6", "caption:ngayle_7", "caption:ngayle_8", "caption:ngayle_9", "caption:ngayle_10"
             ]),
             overlay_items: JSON.stringify([
                 {
@@ -345,7 +365,7 @@ try {
                         { overlay_id: "caption:streak", source: "local", caption: { type: "streak" } },
                         { overlay_id: "caption:star_sign", source: "local", caption: { type: "star_sign" } },
                         { overlay_id: "caption:color_palette", source: "local", caption: { type: "color_palette" } },
-                        { overlay_id: "caption:locket_count", source: "local", caption: { type: "locket_count" } },
+                        { overlay_id: "caption:locket_count", source: "local", caption: { type: "locket_count" } }
                     ]
                 },
                 {
@@ -357,30 +377,33 @@ try {
                         { overlay_id: "caption:bien_oiiii", source: "remote", caption: { background: { colors: ["#56CFE1", "#72EFDD", "#B8F3FF"] }, icon: { data: "🌊", type: "emoji" }, max_lines: 1, text: "Biển ơiiiii", text_color: "#124559", type: "static_content" } },
                         { overlay_id: "caption:chan_bo_may_di", source: "remote", caption: { background: { colors: ["#6A0572", "#AB1745", "#FF7B54"] }, icon: { data: "🙄", type: "emoji" }, max_lines: 1, text: "Chan bố mày điiiii", text_color: "#FFFFFF", type: "static_content" } },  
                         { overlay_id: "caption:toi_song_the_day", source: "remote", caption: { background: { colors: ["#202124", "#525866", "#AAB2C0"] }, icon: { data: "😇", type: "emoji" }, max_lines: 1, text: "Đời bố bố quản", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:tuong_love_hoa_ra_lop", source: "remote", caption: { background: { colors: ["#C9184A", "#FF4D6D", "#FFB3C6"] }, icon: { data: "❤️‍🩹", type: "emoji" }, max_lines: 1, text: "Lốp Trưởng", text_color: "#64152F", type: "static_content" } },   
+                        { overlay_id: "caption:tuong_love_hoa_ra_lop", source: "remote", caption: { background: { colors: ["#C9184A", "#FF4D6D", "#FFB3C6"] }, icon: { data: "❤️‍🩹", type: "emoji" }, max_lines: 1, text: "Lớp Trưởng", text_color: "#64152F", type: "static_content" } }
                     ]
                 },
                 {
-                    section: "Festival",
+                    section: "Lễ Hội",
                     items: [
-                        { overlay_id: "caption:custom_halloween", source: "remote", caption: { background: { colors: ["#150804", "#C8540D"] }, max_lines: 1, text: "Halloween", text_color: "#FFB182", type: "static_content" } },
-                        { overlay_id: "caption:spring", source: "remote", caption: { background: { colors: ["#FFB7C5", "#FF7EB3"] }, icon: { data: "🌸", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Xuân", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:summer", source: "remote", caption: { background: { colors: ["#4FACFE", "#00F2FE"] }, icon: { data: "☀️", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Hạ", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:custom_autumn", source: "remote", caption: { background: { colors: ["#FFE0A0", "#F6A53A"] }, icon: { data: "🍂", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Thu", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:winter", source: "remote", caption: { background: { colors: ["#A1C4FD", "#C2E9FB"] }, icon: { data: "❄️", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Đông", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:custom_christmas_eve", source: "remote", caption: { background: { colors: ["#2FA85F", "#176B3A"] }, icon: { data: "🕯️", type: "emoji" }, max_lines: 1, text: "Giáng sinh an lành", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:custom_christmas_day", source: "remote", caption: { background: { colors: ["#E53935", "#A81818"] }, icon: { data: "🎄", type: "emoji" }, max_lines: 1, text: "Giáng sinh an lành", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:custom_ny_eve", source: "remote", caption: { background: { colors: ["#FFC64B", "#FFEDBF"] }, icon: { data: "🥂", type: "emoji" }, max_lines: 1, text: "Xin chào 2027!", text_color: "#643F00", type: "static_content" } },
-                        { overlay_id: "caption:custom_ny_day", source: "remote", caption: { background: { colors: ["#3B00EC", "#823FFF"] }, icon: { data: "💫", type: "emoji" }, max_lines: 1, text: "Xin chào 2027!", text_color: "#FFFFFF", type: "static_content" } },
-                        { overlay_id: "caption:custom_ny_alternate", source: "remote", caption: { background: { colors: ["#FF0062", "#FF783F"] }, max_lines: 1, text: "2027", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_1", source: "remote", caption: { background: { colors: ["#150804", "#C8540D"] }, icon: { data: "🎃", type: "emoji" }, max_lines: 1, text: "Halloween", text_color: "#FFB182", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_2", source: "remote", caption: { background: { colors: ["#FFB7C5", "#FF7EB3"] }, icon: { data: "🌸", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Xuân", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_3", source: "remote", caption: { background: { colors: ["#4FACFE", "#00F2FE"] }, icon: { data: "☀️", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Hạ", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_4", source: "remote", caption: { background: { colors: ["#FFE0A0", "#F6A53A"] }, icon: { data: "🍂", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Thu", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_5", source: "remote", caption: { background: { colors: ["#A1C4FD", "#C2E9FB"] }, icon: { data: "❄️", type: "emoji" }, max_lines: 1, text: "Xin chào Mùa Đông", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_6", source: "remote", caption: { background: { colors: ["#2FA85F", "#176B3A"] }, icon: { data: "🕯️", type: "emoji" }, max_lines: 1, text: "Giáng sinh an lành", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_7", source: "remote", caption: { background: { colors: ["#E53935", "#A81818"] }, icon: { data: "🎄", type: "emoji" }, max_lines: 1, text: "Giáng sinh an lành", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_8", source: "remote", caption: { background: { colors: ["#FFC64B", "#FFEDBF"] }, icon: { data: "🥂", type: "emoji" }, max_lines: 1, text: "Xin chào 2027!", text_color: "#643F00", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_9", source: "remote", caption: { background: { colors: ["#3B00EC", "#823FFF"] }, icon: { data: "💫", type: "emoji" }, max_lines: 1, text: "Xin chào 2027!", text_color: "#FFFFFF", type: "static_content" } },
+                        { overlay_id: "caption:ngayle_10", source: "remote", caption: { background: { colors: ["#FF0062", "#FF783F"] }, max_lines: 1, text: "2027", text_color: "#FFFFFF", type: "static_content" } }
                     ]
-                },
+                }
             ])
         });
     }
 
+    // Luôn gọi $done cuối cùng nếu logic chạy thành công
     $done({ body: JSON.stringify(obj) });
+
 } catch (error) {
-    console.log("Locket Firebase Script Error: " + error.message);
+    // Bẫy lỗi lớp cuối cùng, đảm bảo kịch bản không bao giờ chết treo
+    console.log("Locket General Script Error: " + error.message);
     $done({});
 }
